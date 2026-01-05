@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Administración - Burritos Mexican Grill</title>
+  <link rel="icon" href="data:,">
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+  <style>
+    :root { --primary: #ffffff; --bg: #000000; --card: #111111; --text: #ffffff; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; }
+    .dashboard-layout { display: flex; flex-direction: column; gap: 20px; padding: 20px; max-width: 1400px; margin: 0 auto; }
+    
+    .top-section { background: var(--card); border: 1px solid #333; padding: 25px; border-radius: 12px; }
+    .controls-grid { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; align-items: center; }
+    select, input { padding: 12px; background: #000; color: #fff; border: 1px solid #fff; border-radius: 6px; }
+    button { padding: 12px 25px; background: #fff; color: #000; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+    button:hover { background: #ccc; }
+    
+    .main-content { display: grid; grid-template-columns: 350px 1fr; gap: 25px; }
+    .table-wrapper { background: var(--card); border: 1px solid #444; border-radius: 10px; padding: 15px; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; border-bottom: 2px solid #fff; padding: 10px; font-size: 0.8em; }
+    td { padding: 12px 10px; border-bottom: 1px solid #333; font-size: 0.9em; }
+    
+    .calendar-container { background: #fff; border-radius: 12px; padding: 15px; color: #000; min-height: 750px; }
+    .fc .fc-button .fc-icon { display: none !important; }
+    .fc .fc-button { text-transform: capitalize !important; }
+    .fc-event-title { white-space: normal !important; font-size: 0.75em !important; color: #000 !important; font-weight: bold; }
+
+    /* Ajuste responsivo */
+    @media (max-width: 768px) {
+      .main-content { grid-template-columns: 1fr; }
+      .controls-grid { flex-direction: column; }
+      select, input, button { width: 100% !important; max-width: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="logo-container">
+    <img src="logo.png" alt="Logo" class="main-logo">
+  </div>
+
+  <div class="dashboard-layout">
+    <header style="text-align: center; border-bottom: 2px solid #fff; padding-bottom: 10px;">
+      <h1>PANEL DE CONTROL (JEFA)</h1>
+    </header>
+
+    <section class="top-section">
+      <div class="controls-grid">
+        <select id="selEmp"></select>
+        <input type="date" id="fecha">
+        <select id="hI">
+          <option value="08:00:00">08:00 AM</option>
+          <option value="09:00:00">09:00 AM</option>
+          <option value="10:00:00">10:00 AM</option>
+          <option value="11:00:00">11:00 AM</option>
+          <option value="12:00:00">12:00 PM</option>
+          <option value="13:00:00">01:00 PM</option>
+          <option value="14:00:00">02:00 PM</option>
+          <option value="15:00:00">03:00 PM</option>
+          <option value="16:00:00">04:00 PM</option>
+          <option value="17:00:00">05:00 PM</option>
+        </select>
+        <select id="hF">
+          <option value="12:00:00">12:00 PM</option>
+          <option value="13:00:00">01:00 PM</option>
+          <option value="14:00:00">02:00 PM</option>
+          <option value="15:00:00">03:00 PM</option>
+          <option value="16:00:00">04:00 PM</option>
+          <option value="17:00:00">05:00 PM</option>
+          <option value="18:00:00">06:00 PM</option>
+          <option value="19:00:00">07:00 PM</option>
+          <option value="20:00:00">08:00 PM</option>
+          <option value="21:00:00">09:00 PM</option>
+          <option value="22:00:00">10:00 PM</option>
+          <option value="23:00:00">11:00 PM</option>
+        </select>
+        <button onclick="asignar()">Asignar Turno</button>
+      </div>
+    </section>
+
+    <main class="main-content">
+      <div class="sidebar">
+        <h3>Acciones</h3>
+        <button onclick="filtrarCalendario()" id="btnFiltro" style="width: 100%; background: #2ecc71; color: #fff; margin-bottom: 20px;">FILTRAR POR EMPLEADO</button>
+
+        <div class="table-wrapper">
+          <h3>Resumen Semanal</h3>
+          <table>
+            <thead><tr><th>Empleado</th><th>Total</th></tr></thead>
+            <tbody id="tabHoras"></tbody>
+            <tfoot><tr><td><strong>TOTAL</strong></td><td id="totalG">0.00h</td></tr></tfoot>
+          </table>
+        </div>
+
+        <div class="table-wrapper">
+          <h3>Incidencias Semanales</h3>
+          <table>
+            <thead><tr><th>Empleado</th><th>Tardes</th><th>Faltas</th></tr></thead>
+            <tbody id="tabIncidencias"></tbody>
+          </table>
+        </div>
+
+        <button onclick="descargarTXT()" style="width: 100%; margin-bottom: 10px;">REPORTE .TXT</button>
+        <button onclick="cerrarSesion()" style="width: 100%; background: #444; color: #fff;">Cerrar Sesión</button>
+      </div>
+
+      <div class="calendar-container">
+        <div id="calendario"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Tu lógica original de la Jefa exactamente igual
+    const firebaseConfig = {
+      apiKey: "AIzaSyAf5Ht4BrFzvhOmVdIduTPIlcspth9GAHs",
+      authDomain: "horarios-burritos.firebaseapp.com",
+      projectId: "horarios-burritos",
+      storageBucket: "horarios-burritos.appspot.com",
+      messagingSenderId: "275317724774",
+      appId: "1:275317724774:web:95324e52dce0ff7ab73fa7"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    let calendar;
+    const palette = ["#D1EAFF", "#FFD1D1", "#D1FFD7", "#F9D1FF", "#FFF6D1"];
+    let filtroEmpleado = "todos";
+
+    document.addEventListener('DOMContentLoaded', () => {
+      calendar = new FullCalendar.Calendar(document.getElementById('calendario'), {
+        initialView: 'timeGridWeek',
+        locale: 'es',
+        allDaySlot: false,
+        slotMinTime: '08:00:00',
+        buttonText: { today: 'Hoy', week: 'Semana', day: 'Día', prev: 'Ant', next: 'Sig' },
+        eventClick: async (info) => {
+          if(confirm(`¿Eliminar turno de ${info.event.extendedProps.nombre}?`)) {
+            await db.collection("Horarios").doc(info.event.extendedProps.id).delete();
+            cargarDatos();
+          }
+        }
+      });
+      calendar.render();
+      cargarEmpleados();
+      cargarDatos();
+    });
+
+    async function cargarEmpleados() {
+      const snap = await db.collection("Usuarios").where("rol","==","empleado").get();
+      const sel = document.getElementById("selEmp");
+      sel.innerHTML = "";
+      snap.forEach(doc => {
+        sel.insertAdjacentHTML("beforeend", `<option value="${doc.id}">${doc.data().nombre}</option>`);
+      });
+    }
+
+    async function cargarDatos() {
+      calendar.getEvents().forEach(e => e.remove());
+      const emps = {}; const empColors = {}; let colorIdx = 0;
+      const uSnap = await db.collection("Usuarios").get();
+      uSnap.forEach(d => {
+        emps[d.id] = d.data().nombre;
+        empColors[d.id] = palette[colorIdx % palette.length];
+        colorIdx++;
+      });
+
+      const hSnap = await db.collection("Horarios").get();
+      hSnap.forEach(doc => {
+        const h = doc.data();
+        if (filtroEmpleado !== "todos" && h.empleadoId !== filtroEmpleado) return;
+
+        const nombreEmp = emps[h.empleadoId] || "Sin Nombre";
+        let finalColor = empColors[h.empleadoId];
+        if(h.estado === "Retraso") finalColor = "#f1c40f";
+        if(h.estado === "Falta") finalColor = "#e74c3c";
+        if(h.estado === "Pendiente") finalColor = "#3498db";
+
+        calendar.addEvent({
+          title: `${nombreEmp}\n${h.horaInicio.substring(0,5)}-${h.horaFin.substring(0,5)}`,
+          start: `${h.dia}T${h.horaInicio}`,
+          end: `${h.dia}T${h.horaFin}`,
+          backgroundColor: finalColor,
+          extendedProps: { ...h, id: doc.id, nombre: nombreEmp }
+        });
+      });
+      procesarTablas();
+    }
+
+    function obtenerLunesSemana() {
+      const hoy = new Date();
+      const dia = hoy.getDay(); 
+      const diff = hoy.getDate() - dia + (dia === 0 ? -6 : 1);
+      const lunes = new Date(hoy.setDate(diff));
+      lunes.setHours(0,0,0,0);
+      return lunes;
+    }
+
+    function procesarTablas() {
+      const resH = document.getElementById("tabHoras");
+      const resI = document.getElementById("tabIncidencias");
+      resH.innerHTML = ""; resI.innerHTML = "";
+      
+      const inicioSemana = obtenerLunesSemana();
+      const dataEmp = {}; let totalG = 0;
+      
+      calendar.getEvents().forEach(evt => {
+        if(evt.start >= inicioSemana) {
+          const p = evt.extendedProps;
+          if(!dataEmp[p.nombre]) dataEmp[p.nombre] = { h: 0, t: 0, f: 0, idUltimoPendiente: null };
+          
+          if(p.estado === "Falta") dataEmp[p.nombre].f++;
+          if(p.estado === "Retraso") dataEmp[p.nombre].t++;
+          if(p.estado === "Pendiente") dataEmp[p.nombre].idUltimoPendiente = p.id;
+          
+          let dur = (evt.end - evt.start) / 3600000;
+          if(p.estado === "Retraso") dur = Math.max(0, dur - 0.25);
+          if(p.estado !== "Falta") {
+            dataEmp[p.nombre].h += dur;
+            totalG += dur;
+          }
+        }
+      });
+      
+      Object.keys(dataEmp).forEach(n => {
+        resH.insertAdjacentHTML("beforeend", `<tr><td>${n}</td><td>${dataEmp[n].h.toFixed(2)}h</td></tr>`);
+        let btnFalta = dataEmp[n].idUltimoPendiente ? 
+            `<button onclick="marcarFaltaManual('${dataEmp[n].idUltimoPendiente}')" style="padding:2px 5px; background:red; color:white; font-size:9px; margin-left:5px;">FALTA</button>` : "";
+        resI.insertAdjacentHTML("beforeend", `<tr><td>${n}</td><td>${dataEmp[n].t}</td><td>${dataEmp[n].f} ${btnFalta}</td></tr>`);
+      });
+      document.getElementById("totalG").innerText = totalG.toFixed(2) + "h";
+    }
+
+    async function marcarFaltaManual(id) {
+        if(confirm("¿Confirmar inasistencia?")) {
+            await db.collection("Horarios").doc(id).update({ estado: "Falta" });
+            cargarDatos();
+        }
+    }
+
+    async function asignar() {
+      const id = document.getElementById("selEmp").value;
+      const f = document.getElementById("fecha").value;
+      if(!f) return alert("Selecciona una fecha");
+      await db.collection("Horarios").add({ 
+        empleadoId: id, 
+        dia: f, 
+        horaInicio: document.getElementById("hI").value, 
+        horaFin: document.getElementById("hF").value, 
+        estado: "Pendiente" 
+      });
+      cargarDatos();
+    }
+
+    function filtrarCalendario() {
+      const btn = document.getElementById("btnFiltro");
+      if (filtroEmpleado === "todos") {
+        filtroEmpleado = document.getElementById("selEmp").value;
+        btn.innerText = "VER TODOS";
+        btn.style.background = "#e67e22";
+      } else {
+        filtroEmpleado = "todos";
+        btn.innerText = "FILTRAR POR EMPLEADO";
+        btn.style.background = "#2ecc71";
+      }
+      cargarDatos();
+    }
+
+    function descargarTXT() {
+      const lunes = obtenerLunesSemana();
+      let t = "REPORTE SEMANAL - BURRITOS MEXICAN GRILL\n";
+      t += `Desde el Lunes: ${lunes.toLocaleDateString()}\n\n`;
+      calendar.getEvents().forEach(evt => {
+        if(evt.start >= lunes) {
+          const p = evt.extendedProps;
+          t += `${p.nombre}: ${p.dia} | ${p.horaInicio}-${p.horaFin} (${p.estado})\n`;
+        }
+      });
+      const blob = new Blob([t], {type: 'text/plain'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Reporte_Semanal.txt`;
+      a.click();
+    }
+
+    function cerrarSesion() { firebase.auth().signOut().then(() => window.location.href = "login.html"); }
+  </script>
+</body>
+</html>

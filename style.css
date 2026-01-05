@@ -1,0 +1,160 @@
+/* style.css - Burritos Mexican Grill */
+
+/* --- BLOQUE DEL LOGO (NUEVO) --- */
+.logo-container {
+  text-align: center;
+  padding-top: 20px;
+}
+.main-logo {
+  max-width: 180px;
+  height: auto;
+}
+
+body {
+  background-color: #000;
+  color: #fff;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  text-align: center;
+  margin-top: 10px; 
+  font-size: 2.8em;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  animation: fadeInDown 1s ease;
+}
+
+h2 {
+  margin-bottom: 20px;
+  animation: fadeIn 1s ease;
+}
+
+button {
+  background-color: #fff;
+  color: #000;
+  border: 2px solid #fff;
+  padding: 12px 25px;
+  margin: 10px;
+  font-size: 1.1em;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.3s ease, transform 0.2s ease;
+}
+
+button:hover {
+  background-color: #000;
+  color: #fff;
+  border: 2px solid #fff;
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+}
+
+.card {
+  background-color: #111;
+  padding: 40px;
+  border-radius: 12px;
+  border: 1px solid #333;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  text-align: center;
+  width: 100%;
+  max-width: 400px;
+  animation: fadeInUp 1s ease;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  background-color: #000;
+  color: #fff;
+  border: 1px solid #fff;
+  border-radius: 6px;
+  font-size: 1em;
+  box-sizing: border-box;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+th, td {
+  border: 1px solid #fff;
+  padding: 10px;
+  text-align: center;
+  font-size: 1em;
+}
+
+th {
+  background-color: #111;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.fc {
+  background-color: #000;
+  color: #fff;
+  border: 1px solid #fff;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.fc-toolbar-title {
+  color: #fff;
+  font-size: 1.4em;
+  letter-spacing: 2px;
+}
+
+.fc-button {
+  background-color: #fff !important;
+  color: #000 !important;
+  border: 1px solid #fff !important;
+  border-radius: 6px !important;
+  transition: all 0.3s ease;
+}
+
+.fc-button:hover {
+  background-color: #000 !important;
+  color: #fff !important;
+}
+
+/* --- AJUSTES PARA TELÉFONOS (AÑADIDO) --- */
+@media (max-width: 768px) {
+  h1 { font-size: 1.8em; letter-spacing: 1px; }
+  .main-logo { max-width: 140px; }
+  
+  /* Ajuste de tablas para que no se corten */
+  .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  th, td { padding: 8px 4px; font-size: 0.85em; }
+  
+  /* Calendario más compacto en móvil */
+  .fc-toolbar-title { font-size: 1em !important; }
+  .fc-button { padding: 4px 8px !important; font-size: 0.8em !important; }
+  .calendar-container { min-height: 500px !important; }
+}

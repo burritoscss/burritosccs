@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Login - Burritos Mexican Grill</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+  <title>Login - Burritos Mexican Grill</title>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
@@ -46,6 +47,7 @@
 
       try {
         if (usuario.includes("@")) {
+          // LOGIN JEFA (Por Correo)
           const cred = await auth.signInWithEmailAndPassword(usuario, pass);
           const docSnap = await db.collection("Usuarios").doc(cred.user.uid).get();
           if (docSnap.exists && docSnap.data().rol === "jefa") {
@@ -54,6 +56,7 @@
             alert("No tienes rol de jefa.");
           }
         } else {
+          // LOGIN EMPLEADO (Por Cédula)
           const snapshot = await db.collection("Usuarios").where("cedula", "==", usuario).get();
           if (snapshot.empty) {
             alert("No existe usuario con esa cédula.");
@@ -61,14 +64,16 @@
           }
           const empleado = snapshot.docs[0].data();
           if (empleado.pass === pass && empleado.rol === "empleado") {
+            // Guardamos nombre y cédula para el dashboard del empleado
             localStorage.setItem("cedula", usuario);
+            localStorage.setItem("nombreEmpleado", empleado.nombre);
             window.location.href = "dashboard-empleado.html";
           } else {
-            alert("Contraseña incorrecta o rol inválido.");
+            alert("Contraseña incorrecta.");
           }
         }
       } catch (err) {
-        alert("Error al iniciar sesión.");
+        alert("Error: " + err.message);
       }
     });
   </script>

@@ -27,9 +27,6 @@
 
     .calendar-container { background: #fff; border-radius: 12px; padding: 15px; color: #000; min-height: 700px; }
     
-    .fc .fc-button .fc-icon { display: none !important; }
-    .fc .fc-button { text-transform: capitalize !important; }
-    
     .fc-event-title { 
       white-space: pre-wrap !important; 
       font-size: 0.85em !important; 
@@ -37,10 +34,10 @@
       color: #000 !important; 
     }
     
-    button { padding: 12px 25px; background: #fff; color: #000; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    button { padding: 12px 25px; background: #fff; color: #000; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-logout { background: #444; color: #fff; width: 100%; margin-top: 20px; }
 
-    /* Ajuste responsivo de la cuadrícula */
     @media (max-width: 768px) {
       .main-content { grid-template-columns: 1fr; }
     }
@@ -59,13 +56,13 @@
     <section id="checkInArea" class="top-section" style="display: none;">
       <h2 id="saludoEntrada">¡HOLA!</h2>
       <p id="infoTurno" style="font-size: 1.1em; margin-bottom: 15px; color: #aaa;"></p>
-      <button id="btnMarcar" onclick="marcarEntrada()" style="font-size: 1.2em; padding: 15px 40px;">CARGANDO...</button>
+      <button id="btnMarcar" onclick="marcarEntrada()">CARGANDO...</button>
     </section>
 
     <main class="main-content">
       <div class="sidebar">
         <div class="table-wrapper">
-          <h3 id="nombreEmpleado">Mis Horarios</h3>
+          <h3 id="nombreEmpleado">Mis Horarios Semanales</h3>
           <table>
             <thead>
               <tr><th>Día</th><th>Inicio</th><th>Fin</th></tr>
@@ -110,38 +107,49 @@
       setInterval(actualizarEstadoBoton, 1000);
     });
 
-    async function cargarMisDatos() {
-      const cedula = localStorage.getItem("cedula");
-      if(!cedula) return window.location.href="login.html";
+    // Función para calcular el inicio de la semana (Lunes)
+    function obtenerLunesSemana() {
+      const hoy = new Date();
+      const dia = hoy.getDay(); 
+      const diff = hoy.getDate() - dia + (dia === 0 ? -6 : 1);
+      const lunes = new Date(hoy.setDate(diff));
+      lunes.setHours(0,0,0,0);
+      return lunes;
+    }
 
-      const userSnap = await db.collection("Usuarios").where("cedula", "==", cedula).get();
+    async function cargarMisDatos() {
+      const cedulaSession = localStorage.getItem("cedula");
+      if(!cedulaSession) return window.location.href="login.html";
+
+      const userSnap = await db.collection("Usuarios").where("cedula", "==", cedulaSession).get();
       if(userSnap.empty) return;
       
       const userDoc = userSnap.docs[0];
-      const uid = userDoc.id;
       miNombreGlobal = userDoc.data().nombre;
       document.getElementById("nombreEmpleado").innerText = "Empleado: " + miNombreGlobal;
       document.getElementById("saludoEntrada").innerText = "¡HOLA, " + miNombreGlobal.split(' ')[0].toUpperCase() + "!";
 
-      const hSnap = await db.collection("Horarios").where("empleadoId", "==", uid).get();
+      // Traer todos los turnos del empleado
+      const hSnap = await db.collection("Horarios").where("empleadoId", "in", [cedulaSession, userDoc.id]).get();
+      
       const listaHTML = document.getElementById("listaTurnos");
       listaHTML.innerHTML = "";
       let todosLosTurnos = [];
+      const lunesActual = obtenerLunesSemana();
 
       hSnap.forEach(doc => {
         const h = doc.data();
-        const item = { id: doc.id, ...h };
-        todosLosTurnos.push(item);
+        const fechaTurno = new Date(`${h.dia}T00:00:00`);
+
+        // FILTRO SEMANAL: Solo incluimos turnos de esta semana en adelante
+        if (fechaTurno >= lunesActual) {
+          todosLosTurnos.push({ id: doc.id, ...h });
+        }
       });
 
-      // ORDENAMIENTO CRONOLÓGICO: Se ordena por fecha y hora antes de mostrar en la tabla
-      todosLosTurnos.sort((a, b) => {
-        const fechaA = new Date(`${a.dia}T${a.horaInicio}`);
-        const fechaB = new Date(`${b.dia}T${b.horaInicio}`);
-        return fechaA - fechaB;
-      });
+      // Ordenar por fecha y hora
+      todosLosTurnos.sort((a, b) => new Date(`${a.dia}T${a.horaInicio}`) - new Date(`${b.dia}T${b.horaInicio}`));
 
-      // Llenado de la tabla y calendario con los datos ya ordenados
       todosLosTurnos.forEach(h => {
         listaHTML.insertAdjacentHTML("beforeend", `
           <tr>
@@ -160,20 +168,19 @@
         });
       });
 
+      // Detectar si hay un turno para hoy para mostrar el área de marcaje
       const ahora = new Date();
+      const fechaHoy = ahora.toISOString().split('T')[0];
+
       turnoActivo = todosLosTurnos.find(t => {
         const hEntrada = new Date(`${t.dia}T${t.horaInicio}`);
-        const limiteTarde = new Date(hEntrada.getTime() + 60 * 60000); 
-        return t.estado === "Pendiente" && ahora < limiteTarde;
+        const limiteMaximo = new Date(hEntrada.getTime() + 60 * 60000); 
+        return t.dia === fechaHoy && t.estado === "Pendiente" && ahora < limiteMaximo;
       });
-
-      if (!turnoActivo) {
-        turnoActivo = todosLosTurnos.find(t => t.estado === "Pendiente" && new Date(`${t.dia}T${t.horaInicio}`) > ahora);
-      }
 
       if (turnoActivo) {
         document.getElementById("checkInArea").style.display = "block";
-        document.getElementById("infoTurno").innerText = `Turno programado: ${turnoActivo.dia} a las ${turnoActivo.horaInicio.substring(0,5)}`;
+        document.getElementById("infoTurno").innerText = `Turno programado hoy: ${turnoActivo.horaInicio.substring(0,5)}`;
       }
     }
 
@@ -182,37 +189,46 @@
 
       const ahora = new Date();
       const hEntrada = new Date(`${turnoActivo.dia}T${turnoActivo.horaInicio}`);
-      const finGracia = new Date(hEntrada.getTime() + 15 * 60000); 
+      const hInicioPermitido = new Date(hEntrada.getTime() - 10 * 60000); // 10 min antes
+      const finGracia = new Date(hEntrada.getTime() + 15 * 60000); // 15 min después
       const btn = document.getElementById("btnMarcar");
 
-      if (ahora < hEntrada) {
+      if (ahora < hInicioPermitido) {
         btn.disabled = true;
-        btn.innerText = "BLOQUEADO (TEMPRANO)";
+        btn.innerText = "ESPERANDO HORA...";
         btn.style.background = "#444"; btn.style.color = "white";
-      } else if (ahora >= hEntrada && ahora <= finGracia) {
+      } else if (ahora >= hInicioPermitido && ahora <= finGracia) {
         btn.disabled = false;
         btn.innerText = "MARCAR ENTRADA";
         btn.style.background = "#2ecc71"; btn.style.color = "white";
       } else {
-        btn.disabled = true;
-        btn.innerText = "BLOQUEADO (TARDE)";
-        btn.style.background = "#e74c3c"; btn.style.color = "white";
+        btn.disabled = false;
+        btn.innerText = "MARCAR (CON RETRASO)";
+        btn.style.background = "#f1c40f"; btn.style.color = "black";
       }
     }
 
     async function marcarEntrada() {
+      if(!turnoActivo) return;
+      const ahora = new Date();
+      const hEntradaProg = new Date(`${turnoActivo.dia}T${turnoActivo.horaInicio}`);
+      const finGracia = new Date(hEntradaProg.getTime() + 15 * 60000);
+      
+      let estadoFinal = "Normal";
+      if (ahora > finGracia) { estadoFinal = "Retraso"; }
+
       try {
         await db.collection("Horarios").doc(turnoActivo.id).update({ 
-          estado: "Normal",
-          horaRealEntrada: new Date().toLocaleTimeString() 
+          estado: estadoFinal,
+          horaRealEntrada: ahora.toLocaleTimeString() 
         });
-        alert("✅ Entrada registrada correctamente.");
+        alert(`✅ Entrada registrada. Estado: ${estadoFinal}`);
         location.reload();
       } catch (error) { alert("Error: " + error.message); }
     }
 
     function cerrarSesion() {
-      localStorage.removeItem("cedula");
+      localStorage.clear();
       window.location.href="login.html";
     }
   </script>

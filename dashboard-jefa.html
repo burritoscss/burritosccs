@@ -30,15 +30,12 @@
     td { padding: 12px 10px; border-bottom: 1px solid #333; font-size: 0.9em; }
     
     .calendar-container { background: #fff; border-radius: 12px; padding: 15px; color: #000; min-height: 750px; }
-    .fc .fc-button .fc-icon { display: none !important; }
-    .fc .fc-button { text-transform: capitalize !important; }
     .fc-event-title { white-space: normal !important; font-size: 0.75em !important; color: #000 !important; font-weight: bold; }
 
-    /* Ajuste responsivo */
     @media (max-width: 768px) {
       .main-content { grid-template-columns: 1fr; }
       .controls-grid { flex-direction: column; }
-      select, input, button { width: 100% !important; max-width: none !important; }
+      select, input, button { width: 100% !important; }
     }
   </style>
 </head>
@@ -119,7 +116,6 @@
   </div>
 
   <script>
-    // Tu lógica original de la Jefa exactamente igual
     const firebaseConfig = {
       apiKey: "AIzaSyAf5Ht4BrFzvhOmVdIduTPIlcspth9GAHs",
       authDomain: "horarios-burritos.firebaseapp.com",
@@ -158,27 +154,45 @@
       const sel = document.getElementById("selEmp");
       sel.innerHTML = "";
       snap.forEach(doc => {
-        sel.insertAdjacentHTML("beforeend", `<option value="${doc.id}">${doc.data().nombre}</option>`);
+        // Usamos la cédula como valor de enlace
+        sel.insertAdjacentHTML("beforeend", `<option value="${doc.data().cedula}">${doc.data().nombre}</option>`);
       });
     }
 
     async function cargarDatos() {
       calendar.getEvents().forEach(e => e.remove());
-      const emps = {}; const empColors = {}; let colorIdx = 0;
+      
+      const nombresPorCedula = {}; 
+      const nombresPorId = {}; 
+      const coloresPorEmp = {}; 
+      let colorIdx = 0;
+      
+      // 1. Mapear usuarios (Doble búsqueda para no perder nombres)
       const uSnap = await db.collection("Usuarios").get();
       uSnap.forEach(d => {
-        emps[d.id] = d.data().nombre;
-        empColors[d.id] = palette[colorIdx % palette.length];
+        const data = d.data();
+        const idDoc = d.id;
+        const nombre = data.nombre || "Sin Nombre";
+        const cedula = data.cedula;
+
+        nombresPorId[idDoc] = nombre;
+        if (cedula) nombresPorCedula[cedula] = nombre;
+
+        const keyColor = cedula || idDoc;
+        coloresPorEmp[keyColor] = palette[colorIdx % palette.length];
         colorIdx++;
       });
 
+      // 2. Cargar Horarios
       const hSnap = await db.collection("Horarios").get();
       hSnap.forEach(doc => {
         const h = doc.data();
         if (filtroEmpleado !== "todos" && h.empleadoId !== filtroEmpleado) return;
 
-        const nombreEmp = emps[h.empleadoId] || "Sin Nombre";
-        let finalColor = empColors[h.empleadoId];
+        // Recuperar nombre por cédula o por ID viejo
+        let nombreEmp = nombresPorCedula[h.empleadoId] || nombresPorId[h.empleadoId] || "Usuario Desconocido";
+        
+        let finalColor = coloresPorEmp[h.empleadoId] || "#ccc";
         if(h.estado === "Retraso") finalColor = "#f1c40f";
         if(h.estado === "Falta") finalColor = "#e74c3c";
         if(h.estado === "Pendiente") finalColor = "#3498db";
@@ -246,11 +260,12 @@
     }
 
     async function asignar() {
-      const id = document.getElementById("selEmp").value;
+      const idCedula = document.getElementById("selEmp").value;
       const f = document.getElementById("fecha").value;
       if(!f) return alert("Selecciona una fecha");
+      
       await db.collection("Horarios").add({ 
-        empleadoId: id, 
+        empleadoId: idCedula, 
         dia: f, 
         horaInicio: document.getElementById("hI").value, 
         horaFin: document.getElementById("hF").value, 

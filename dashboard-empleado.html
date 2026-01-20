@@ -83,7 +83,6 @@
   </div>
 
   <script>
-    // Tu configuración de Firebase y funciones permanecen intactas
     const firebaseConfig = {
       apiKey: "AIzaSyAf5Ht4BrFzvhOmVdIduTPIlcspth9GAHs",
       authDomain: "horarios-burritos.firebaseapp.com",
@@ -133,7 +132,17 @@
         const h = doc.data();
         const item = { id: doc.id, ...h };
         todosLosTurnos.push(item);
+      });
 
+      // ORDENAMIENTO CRONOLÓGICO: Se ordena por fecha y hora antes de mostrar en la tabla
+      todosLosTurnos.sort((a, b) => {
+        const fechaA = new Date(`${a.dia}T${a.horaInicio}`);
+        const fechaB = new Date(`${b.dia}T${b.horaInicio}`);
+        return fechaA - fechaB;
+      });
+
+      // Llenado de la tabla y calendario con los datos ya ordenados
+      todosLosTurnos.forEach(h => {
         listaHTML.insertAdjacentHTML("beforeend", `
           <tr>
             <td>${h.dia}</td>
@@ -152,8 +161,6 @@
       });
 
       const ahora = new Date();
-      todosLosTurnos.sort((a,b) => new Date(`${a.dia}T${a.horaInicio}`) - new Date(`${b.dia}T${b.horaInicio}`));
-
       turnoActivo = todosLosTurnos.find(t => {
         const hEntrada = new Date(`${t.dia}T${t.horaInicio}`);
         const limiteTarde = new Date(hEntrada.getTime() + 60 * 60000); 
